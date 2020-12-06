@@ -1,0 +1,16 @@
+#setting{
+
+}
+
+#setting .prop{
+
+}
+#setting .prop .root{
+
+}
+#setting .prop .root >QLabel{
+    border: 1px solid red;
+}
+#setting .prop .root > .svg{
+    font-size: 40px;
+}

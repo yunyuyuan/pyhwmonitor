@@ -1,0 +1,20 @@
+#window{
+}
+
+#bg{
+    background: rgba(0, 0, 0, 150);
+}
+#bg > .prop{
+}
+#bg > .prop > .svg{
+    font-size: 36px;
+    color: lightgreen;
+}
+#bg > .prop > .value-container{
+    border: 1px solid white;
+}
+#bg > .prop > .value-container >.crop{
+}
+#bg > .prop > .value-container >.crop >.content{
+    background: red;
+}
