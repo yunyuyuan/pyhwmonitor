@@ -15,6 +15,7 @@ class App:
         self.ico_font = Qt.QFont(Qt.QFontDatabase.applicationFontFamilies(font_id)[0], 30)
         self.config = {}
         self.load_config()
+
         self.Setting = Setting(self)
         self.Window = Window(self)
         self.Tray = Tray(self)

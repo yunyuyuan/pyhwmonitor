@@ -9,7 +9,7 @@ btn_list = {
 
 
 class Svg(Qt.QLabel):
-    def __init__(self, parent, file, hover=True):
+    def __init__(self, parent, file):
         super().__init__(chr(btn_list[file]), parent)
         self.setProperty('class', 'svg')
         self.setStyleSheet('''
@@ -17,4 +17,3 @@ class Svg(Qt.QLabel):
                 font-family: iconfont;
             }
         ''')
-        self.hover = hover

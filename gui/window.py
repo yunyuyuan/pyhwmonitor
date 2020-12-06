@@ -2,12 +2,13 @@ from time import sleep
 
 from PyQt5 import Qt
 
+from components.moveable import Moveable
 from components.svg import Svg
-from utils.hardware import get_hardware_info
-from utils.utils import join_path
+from utils.hardware import get_hardware_info, sub_prop
+from utils.utils import join_path, screen_size
 
 
-class Window(Qt.QWidget):
+class Window(Moveable):
     def __init__(self, top):
         super().__init__(flags=Qt.Qt.FramelessWindowHint)
         self.top = top
@@ -19,20 +20,27 @@ class Window(Qt.QWidget):
         self.frame_background = Qt.QFrame(self)
         self.frame_background.setObjectName('bg')
 
-        prop_layout = Qt.QGridLayout(self)
-        self.prop_cpu = Prop(self.frame_background, 'cpu')
-        self.prop_gpu = Prop(self.frame_background, 'gpu')
-
-        prop_layout.addWidget(self.prop_cpu, 0, 0)
-        prop_layout.addWidget(self.prop_gpu, 1, 0)
-        self.frame_background.setLayout(prop_layout)
+        self.prop_layout = Qt.QVBoxLayout(self)
+        self.prop_elements = []
+        self.frame_background.setLayout(self.prop_layout)
 
         layout.addWidget(self.frame_background)
         self.setLayout(layout)
-        self.show()
 
         self.refresh_thread = Refresh(self)
         self.refresh_thread.start()
+
+        show_pos = self.top.config['pos']
+        if len(show_pos) == 0:
+            self.show_at_center()
+        else:
+            self.move(*show_pos)
+            self.show()
+
+    def show_at_center(self):
+        width, height = screen_size()
+        self.move((width - self.width()) // 2, (height - self.height()) // 2)
+        self.show()
 
     def setup_ui(self):
         self.setObjectName("window")
@@ -43,18 +51,34 @@ class Window(Qt.QWidget):
         if self.refresh_thread:
             self.refresh_thread.quit()
 
+    def refresh(self, props_obj):
+        # 清除已有的
+        while self.prop_layout.count():
+            obj = self.prop_layout.itemAt(0).widget()
+            if isinstance(obj, Prop):
+                obj.setParent(None)
+        self.prop_elements = []
+        # 新的
+        for key in props_obj.keys():
+            for item in props_obj[key]:
+                element = Prop(self, key, init_value=item['load'], init_info=item, id_=item['id'], keys=sub_prop[key])
+                self.prop_elements.append(element)
+                self.prop_layout.addWidget(element)
+        update_value(self, props_obj)
+
 
 class Prop(Qt.QFrame):
-    def __init__(self, parent, svg):
+    def __init__(self, parent, svg, init_value=50, init_info=None, id_='', keys=()):
         super().__init__(parent)
         self.setProperty('class', 'prop')
-        self.value = 0
         self.width_ = 160
         self.height_ = 24
-        self.info = {}
-        layout = Qt.QGridLayout()
+        self.keys = keys
+        self.info_rows = []
+        self.id_ = id_
+        layout = Qt.QHBoxLayout()
 
-        self.svg = Svg(self, svg, False)
+        self.svg = Svg(self, svg)
 
         self.value_container = Qt.QFrame(self)
         self.value_container.setProperty('class', 'value-container')
@@ -75,18 +99,53 @@ class Prop(Qt.QFrame):
         self.value_container.setLayout(value_layout)
         self.value_container.setFixedSize(self.width_, self.height_)
 
-        layout.addWidget(self.svg, 0, 0)
-        layout.addWidget(self.value_container, 0, 1)
+        self.info_container = Qt.QFrame(self)
+        self.info_container.setProperty('class', 'info-container')
+        self.info_layout = Qt.QVBoxLayout()
+        for key in self.keys:
+            row = Qt.QFrame(self.info_container)
+            row.key = key
+            row.setProperty('class', 'row')
+            row_layout = Qt.QHBoxLayout()
+
+            label_name = Qt.QLabel(key+':', row)
+            label_name.setProperty('class', 'name')
+            label_name.key = 'name'
+
+            label_value = Qt.QLabel('0', row)
+            label_value.setProperty('class', 'value')
+            label_value.key = 'value'
+
+            row_layout.addWidget(label_name)
+            row_layout.addWidget(label_value)
+            row.setLayout(row_layout)
+            self.info_layout.addWidget(row)
+            self.info_rows.append(row)
+        self.info_container.setLayout(self.info_layout)
+
+        layout.setAlignment(Qt.Qt.AlignLeft)
+        layout.addWidget(self.svg)
+        layout.addWidget(self.value_container)
+        layout.addWidget(self.info_container)
         self.setLayout(layout)
 
-        self.update_value(50)
+        self.update_value(init_value)
+        self.update_info(init_info or {})
 
     def update_value(self, value):
-        self.value = value
-        self.value_crop.setFixedWidth(self.value*(self.width_-2)/100)
+        self.value_crop.setFixedWidth(value*(self.width_-2)/100)
 
     def update_info(self, info):
-        self.info = info
+        for key in self.keys:
+            row = None
+            for i in self.info_rows:
+                if i.key == key:
+                    row = i
+            if row:
+                for label in row.children():
+                    if label.key == 'value':
+                        label.setText(str(round(info.get(key, 0), 1)))
+                        break
 
 
 class Refresh(Qt.QThread):
@@ -97,21 +156,14 @@ class Refresh(Qt.QThread):
     def run(self):
         while True:
             sleep(1)
-            lis = get_hardware_info()
-            for i in lis:
-                if i['type'] == 'cpu':
-                    for j in i['data']:
-                        if j['name'] == 'CPU Total' and j['type'] == 'Load':
-                            self.window.prop_cpu.update_value(j['value'])
-                            break
+            props_obj = get_hardware_info(process=True)
+            update_value(self.window, props_obj)
 
-                    else:
-                        break
-                elif i['type-idx'] == 4:
-                    for j in i['data']:
-                        if j['name'] == 'GPU Core' and j['type'] == 'Load':
-                            self.window.prop_gpu.update_value(j['value'])
-                            break
 
-                    else:
-                        break
+def update_value(window_obj, props_obj):
+    for key in props_obj.keys():
+        for item in props_obj[key]:
+            for e in window_obj.prop_elements:
+                if e.id_ == item['id']:
+                    e.update_value(item['load'])
+                    e.update_info(item)

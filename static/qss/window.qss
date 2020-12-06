@@ -18,3 +18,13 @@
 #bg > .prop > .value-container >.crop >.content{
     background: red;
 }
+#bg > .prop > .info-container{
+}
+#bg > .prop > .info-container >.row{
+}
+#bg > .prop > .info-container >.row>.name{
+    color: white;
+}
+#bg > .prop > .info-container >.row>.value{
+    color: white;
+}
