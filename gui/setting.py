@@ -22,9 +22,7 @@ class Setting(Qt.QWidget):
         # button
         button_layout = Qt.QHBoxLayout()
         self.button_rescan = Button(self, '刷新', lambda e: self.scan())
-        self.button_about = Button(self, '关于')
         button_layout.addWidget(self.button_rescan)
-        button_layout.addWidget(self.button_about)
 
         layout.addLayout(self.prop_layout, 0, 0)
         layout.addLayout(button_layout, 1, 0)
@@ -33,12 +31,15 @@ class Setting(Qt.QWidget):
 
     def show_at_center(self):
         width, height = screen_size()
-        self.move((width-self.width())//2, (height-self.height())//2)
+        self.move((width - self.width()) // 2, (height - self.height()) // 2)
         self.show()
 
     def setup_ui(self):
         self.setWindowTitle("设置")
         self.setObjectName("setting")
+        self.update_qss()
+
+    def update_qss(self):
         with open(join_path("static/qss/setting.qss"), encoding='utf-8') as fp:
             self.setStyleSheet(fp.read())
 
@@ -61,30 +62,93 @@ class Setting(Qt.QWidget):
         props_obj = get_hardware_info(process=True)
         for key in props_obj.keys():
             for item in props_obj[key]:
-                self.prop_layout.addWidget(Prop(self, self.top, item['name'], key, sub_prop[key]))
+                self.prop_layout.addWidget(Prop(self, self.top, item['name'], key, sub_prop[key], id_=item['id']))
         self.scan_thread = None
         # 通知window
         self.top.Window.refresh(props_obj)
 
 
 class Prop(Qt.QFrame):
-    def __init__(self, parent, top, name, svg, sub):
+    def __init__(self, parent, top, name, svg, sub, id_):
         super().__init__(parent)
         self.setProperty("class", "prop")
         self.top = top
+        self.id_ = id_
+        self.set_active()
 
-        layout = Qt.QGridLayout()
+        layout = Qt.QVBoxLayout()
 
-        self.root = Qt.QFrame(self)
-        self.root.setProperty('class', "root")
-        root_layout = Qt.QVBoxLayout()
+        self.text_label = Qt.QLabel(name, self)
+        self.detail_frame = Qt.QFrame(self)
+        self.detail_frame.setProperty('class', 'detail')
 
-        text_label = Qt.QLabel(name, self.root)
-        svg_label = Svg(self.root, svg)
+        detail_layout = Qt.QHBoxLayout()
 
-        root_layout.addWidget(text_label)
-        root_layout.addWidget(svg_label)
-        self.root.setLayout(root_layout)
+        self.svg_label = Svg(self.detail_frame, svg)
+        self.svg_label.clicked.connect(self.toggle_prop)
+        prop_frame = Qt.QFrame(self.detail_frame)
+        prop_frame.setProperty('class', 'sub_props')
+        prop_layout = Qt.QHBoxLayout()
 
-        layout.addWidget(self.root, 0, 0)
+        for i in sub:
+            sub_p = SubProp(prop_frame, self.top, id_, i)
+            prop_layout.addWidget(sub_p)
+
+        prop_frame.setLayout(prop_layout)
+
+        detail_layout.addWidget(self.svg_label)
+        detail_layout.addWidget(prop_frame)
+        self.detail_frame.setLayout(detail_layout)
+
+        layout.addWidget(self.text_label)
+        layout.addWidget(self.detail_frame)
         self.setLayout(layout)
+
+    def set_active(self):
+        self.setProperty('active', 't' if self.id_ not in self.top.config['dont_show'] else 'f')
+
+    def toggle_prop(self):
+        if self.id_ in self.top.config['dont_show']:
+            self.top.config['dont_show'].remove(self.id_)
+        else:
+            self.top.config['dont_show'].append(self.id_)
+        self.top.dump_config()
+        self.set_active()
+        self.parent().update_qss()
+        self.top.Window.refresh()
+
+
+class SubProp(Qt.QLabel):
+    def __init__(self, parent, top, father_id, type_):
+        super().__init__(parent)
+        self.top = top
+        self.setProperty('class', 'sub')
+        self.father_id = father_id
+        self.type_ = type_
+        self.setText(self.top.config['prop_chinese'][type_])
+        self.active = not(self.father_id in self.top.config['dont_show_sub'].keys() and \
+                      self.type_ in self.top.config['dont_show_sub'][self.father_id])
+        self.update_active()
+
+    def update_active(self):
+        if self.father_id not in self.top.config['dont_show_sub'].keys():
+            self.top.config['dont_show_sub'][self.father_id] = []
+        if self.active:
+            try:
+                self.top.config['dont_show_sub'][self.father_id].remove(self.type_)
+            except ValueError:
+                pass
+        else:
+            self.top.config['dont_show_sub'][self.father_id].append(self.type_)
+        self.top.dump_config()
+        self.setProperty('active', 't' if self.active else 'f')
+        self.top.Setting.update_qss()
+        for prop in self.top.Window.prop_elements:
+            if prop.id_ == self.father_id:
+                prop.refresh_info()
+                break
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.Qt.LeftButton:
+            self.active = not self.active
+            self.update_active()

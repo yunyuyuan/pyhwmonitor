@@ -5,12 +5,26 @@
 #setting .prop{
 
 }
-#setting .prop .root{
+#setting .prop >QLabel{
 
 }
-#setting .prop .root >QLabel{
-    border: 1px solid red;
-}
-#setting .prop .root > .svg{
+#setting .prop > .detail > .svg{
     font-size: 40px;
+    color: #aaa;
+}
+#setting .prop[active=t] > .detail > .svg{
+    color: #000;
+}
+#setting .prop > .detail > .svg::hover{
+    color: #e84b00;
+}
+#setting .prop > .detail > .sub_props{
+
+}
+#setting .prop > .detail > .sub_props >.sub{
+    background: #888;
+    color: white;
+}
+#setting .prop > .detail > .sub_props >.sub[active=t]{
+    background: blue;
 }

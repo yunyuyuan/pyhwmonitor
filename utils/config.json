@@ -1,5 +1,18 @@
 {
     "show_setting_window": false,
-    "pos": [],
-    "dont_show": []
+    "pos": [
+        1591,
+        364
+    ],
+    "dont_show": [],
+    "dont_show_sub": {
+        "/amdcpu/0": [],
+        "/atigpu/0": [],
+        "/nvidiagpu/0": [],
+        "/hdd/0": []
+    },
+    "prop_chinese": {
+        "temperature": "\u6e29\u5ea6",
+        "power": "\u529f\u7387"
+    }
 }

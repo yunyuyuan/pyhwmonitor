@@ -12,6 +12,7 @@ class Window(Moveable):
     def __init__(self, top):
         super().__init__(flags=Qt.Qt.FramelessWindowHint)
         self.top = top
+        self.props_obj = {}
         self.setup_ui()
         self.setAttribute(Qt.Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.Qt.WA_TranslucentBackground)
@@ -51,7 +52,13 @@ class Window(Moveable):
         if self.refresh_thread:
             self.refresh_thread.quit()
 
-    def refresh(self, props_obj):
+    def move_end(self):
+        self.top.config['pos'] = [self.x(), self.y()]
+        self.top.dump_config()
+
+    def refresh(self, props_obj=None):
+        if props_obj:
+            self.props_obj = props_obj
         # 清除已有的
         while self.prop_layout.count():
             obj = self.prop_layout.itemAt(0).widget()
@@ -59,18 +66,20 @@ class Window(Moveable):
                 obj.setParent(None)
         self.prop_elements = []
         # 新的
-        for key in props_obj.keys():
-            for item in props_obj[key]:
-                element = Prop(self, key, init_value=item['load'], init_info=item, id_=item['id'], keys=sub_prop[key])
-                self.prop_elements.append(element)
-                self.prop_layout.addWidget(element)
-        update_value(self, props_obj)
+        for key in self.props_obj.keys():
+            for item in self.props_obj[key]:
+                if item['id'] not in self.top.config['dont_show']:
+                    element = Prop(self.top, self, key, init_value=item['load'], init_info=item, id_=item['id'], keys=sub_prop[key])
+                    self.prop_elements.append(element)
+                    self.prop_layout.addWidget(element)
+        update_value(self, self.props_obj)
 
 
 class Prop(Qt.QFrame):
-    def __init__(self, parent, svg, init_value=50, init_info=None, id_='', keys=()):
+    def __init__(self, top, parent, svg, init_value=50, init_info=None, id_='', keys=()):
         super().__init__(parent)
         self.setProperty('class', 'prop')
+        self.top = top
         self.width_ = 160
         self.height_ = 24
         self.keys = keys
@@ -102,25 +111,7 @@ class Prop(Qt.QFrame):
         self.info_container = Qt.QFrame(self)
         self.info_container.setProperty('class', 'info-container')
         self.info_layout = Qt.QVBoxLayout()
-        for key in self.keys:
-            row = Qt.QFrame(self.info_container)
-            row.key = key
-            row.setProperty('class', 'row')
-            row_layout = Qt.QHBoxLayout()
-
-            label_name = Qt.QLabel(key+':', row)
-            label_name.setProperty('class', 'name')
-            label_name.key = 'name'
-
-            label_value = Qt.QLabel('0', row)
-            label_value.setProperty('class', 'value')
-            label_value.key = 'value'
-
-            row_layout.addWidget(label_name)
-            row_layout.addWidget(label_value)
-            row.setLayout(row_layout)
-            self.info_layout.addWidget(row)
-            self.info_rows.append(row)
+        self.refresh_info()
         self.info_container.setLayout(self.info_layout)
 
         layout.setAlignment(Qt.Qt.AlignLeft)
@@ -131,6 +122,37 @@ class Prop(Qt.QFrame):
 
         self.update_value(init_value)
         self.update_info(init_info or {})
+
+    def refresh_info(self):
+        # 删除旧元素
+        while self.info_layout.count():
+            obj = self.info_layout.itemAt(0).widget()
+            if isinstance(obj, Qt.QFrame):
+                obj.setParent(None)
+        self.info_rows = []
+        for key in self.keys:
+            if key in self.top.config['dont_show_sub'].get(self.id_, []):
+                continue
+            row = Qt.QFrame(self.info_container)
+            row.key = key
+            row.setProperty('class', 'row')
+            row_layout = Qt.QHBoxLayout()
+
+            label_name = Qt.QLabel(self.top.config['prop_chinese'][key], row)
+            label_name.setProperty('class', 'name')
+            label_name.key = 'name'
+
+            label_value = Qt.QLabel('0', row)
+            label_value.setProperty('class', 'value')
+            label_value.key = 'value'
+
+            row_layout.setSpacing(0)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.addWidget(label_name)
+            row_layout.addWidget(label_value)
+            row.setLayout(row_layout)
+            self.info_layout.addWidget(row)
+            self.info_rows.append(row)
 
     def update_value(self, value):
         self.value_crop.setFixedWidth(value*(self.width_-2)/100)

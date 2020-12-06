@@ -15,6 +15,7 @@ class Moveable(Qt.QWidget):
 
     def mouseReleaseEvent(self, e):
         self.moving = False
+        self.move_end()
 
     def mouseMoveEvent(self, e):
         if self.moving:
@@ -22,3 +23,6 @@ class Moveable(Qt.QWidget):
             delta = (pos_now.x()-self.move_start.x(), pos_now.y()-self.move_start.y())
             target_pos = (self.pos_start.x()+delta[0], self.pos_start.y()+delta[1])
             self.move(*target_pos)
+
+    def move_end(self):
+        pass

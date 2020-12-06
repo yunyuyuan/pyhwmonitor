@@ -38,4 +38,4 @@ if __name__ == '__main__':
     from sys import argv
     a = Qt.QApplication(argv)
     app = App()
-    a.exec_()
+    print(a.exec_())
